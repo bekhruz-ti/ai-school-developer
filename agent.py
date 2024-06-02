@@ -1,6 +1,7 @@
 import os
 from langchain_openai import ChatOpenAI
 from langchain.agents import AgentExecutor
+from langchain.memory import ConversationBufferMemory
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.tools import tool
 from langsmith import traceable
@@ -24,7 +25,7 @@ memory = ConversationBufferMemory(memory_key="chat_history")
 @tool
 def researcher(question: str, context: str) -> Tuple[str, bool]:
     """
-    Conducts research based on a given question and context, and generates a research report.
+    Conducts research based on a given question and context, and generates a research report. To be used given unexpected errors in implemented code.
 
     Parameters:
     question (str): The research question.
@@ -139,14 +140,14 @@ tools = [
 # Configure the language model
 llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
 
+# Initialize memory to store chat history
+memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
-# Set up the prompt template
+# Set up the prompt template with chat history
 prompt = ChatPromptTemplate.from_messages(
     [
-        (
-            "system",
-            "You are an expert web developer.",
-        ),
+        ("system", "You are an expert web developer."),
+        MessagesPlaceholder("chat_history", optional=True),
         ("user", "{input}"),
         MessagesPlaceholder(variable_name="agent_scratchpad"),
     ]
@@ -155,9 +156,11 @@ prompt = ChatPromptTemplate.from_messages(
 # Bind the tools to the language model
 llm_with_tools = llm.bind_tools(tools)
 
+# Define the agent with chat history
 agent = (
     {
         "input": lambda x: x["input"],
+        "chat_history": lambda x: memory.buffer_as_messages,
         "agent_scratchpad": lambda x: format_to_openai_tool_messages(
             x["intermediate_steps"]
         ),
@@ -167,18 +170,9 @@ agent = (
     | OpenAIToolsAgentOutputParser()
 )
 
+agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, memory=memory)
 
-agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
-
-
-# Main loop to prompt the user
 while True:
     user_prompt = input("Prompt: ")
-    list(agent_executor.stream({"input": user_prompt}))
-    # Create a simple frontend webapp using Vanilla HTML, CSS, and JS, that implements a MineSweeper game. Make sure to include all the necessary JS logic and the CSS to show the 2D grid
-    # Context  
-    """
-    There is a MineSweeper game implemenentation in ./minesweeper. In the current implementation there is only one issue that you need to fix:\n1. When the user completes the game that is all the cells except the miner cells are uncovered there is no you win alert. \n    Do not use React only Vanilla HTML, CSS and JS. Current implementation is Vanilla, continue on it\n    Current working directory for the minesweeper game is /workspace/ai-school-developer/minesweeper $ ls > index.html  script.js  styles.css
-
-        There is a MineSweeper game implemenentation in ./minesweeper. I want to log the location of all the mines with console.log to facilitate testing. Without changing any of the current files, read the script.js and let me know what console.log(...) and where i can add it to enable this behaviour on game start\n Current working directory for the minesweeper game is /workspace/ai-school-developer/minesweeper $ ls > index.html  script.js  styles.css
-    """
+    chat_history = memory.buffer_as_messages
+    list(agent_executor.stream({"input": user_prompt, "chat_history": chat_history}))
