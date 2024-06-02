@@ -3,3 +3,4 @@ langchain_openai
 langchain_community
 langchain_experimental
 gpt-researcher==0.4.3
+pygithub==2.3.0

@@ -17,6 +17,7 @@ import asyncio
 import os
 from typing import Tuple
 from gpt_researcher import GPTResearcher
+from github_integrations import call_github_toolkit
 
 ROOT_DIR = "./"
 VALID_FILE_TYPES = {"py", "txt", "md", "cpp", "c", "java", "js", "html", "css", "ts", "json"}
@@ -74,7 +75,6 @@ def find_file(filename: str, path: str) -> Optional[str]:
     Recursively searches for a file in the given path.
     Returns string of full path to file, or None if file not found.
     """
-    # TODO handle multiple matches
     for root, dirs, files in os.walk(path):
         if filename in files:
             return os.path.join(root, filename)
@@ -124,26 +124,21 @@ def update_file(filename: str, content: str, directory: str = ""):
         return f"File '{filename}' not found at: '{file_path}'"
 
 
-# List of tools to use
 tools = [
     ShellTool(ask_human_input=True),
     create_directory,
-    # create_react_app_with_vite,
     find_file,
     create_file,
     update_file,
-    researcher
-    # Add more tools if needed
+    researcher,
+    call_github_toolkit
 ]
 
 
-# Configure the language model
 llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
 
-# Initialize memory to store chat history
 memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
-# Set up the prompt template with chat history
 prompt = ChatPromptTemplate.from_messages(
     [
         ("system", "You are an expert web developer."),
@@ -153,10 +148,8 @@ prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
-# Bind the tools to the language model
 llm_with_tools = llm.bind_tools(tools)
 
-# Define the agent with chat history
 agent = (
     {
         "input": lambda x: x["input"],
