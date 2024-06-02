@@ -3,6 +3,13 @@
 # and commit this file to your remote git repository to share the goodness with others.
 
 tasks:
-  - init: pip install -r requirements.txt
-
-
+  - init: |
+      pip install -r requirements.txt
+      cd ~/.pyenv
+      git fetch
+      git checkout 0e0ca096
+      pyenv --version
+      python_version="3.11.9"
+      pyenv install -s "$python_version"
+      export PYENV_VERSION="$python_version"
+      cd /workspace/ai-school-developer

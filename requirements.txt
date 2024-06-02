@@ -2,3 +2,4 @@ langchain
 langchain_openai
 langchain_community
 langchain_experimental
+gpt-researcher==0.4.3

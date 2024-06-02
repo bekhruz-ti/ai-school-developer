@@ -9,36 +9,39 @@ from langchain.agents.format_scratchpad.openai_tools import (
     format_to_openai_tool_messages,
 )
 from langchain.agents.output_parsers.openai_tools import OpenAIToolsAgentOutputParser
+from langchain.memory import ConversationBufferMemory, ReadOnlySharedMemory
 import subprocess
-from typing import Optional
+from typing import Optional, Tuple
+import asyncio
+import os
+from typing import Tuple
+from gpt_researcher import GPTResearcher
 
 ROOT_DIR = "./"
 VALID_FILE_TYPES = {"py", "txt", "md", "cpp", "c", "java", "js", "html", "css", "ts", "json"}
+memory = ConversationBufferMemory(memory_key="chat_history")
 
+@tool
+def researcher(question: str, context: str) -> Tuple[str, bool]:
+    """
+    Conducts research based on a given question and context, and generates a research report.
 
-# @tool
-# def create_react_app_with_vite():
-#     """
-#     This function creates a new React application using Vite in the 'app' directory located in the root.
+    Parameters:
+    question (str): The research question.
+    context (str): The context or background information relevant to the question.
 
-#     It navigates to the root directory, finds or creates the 'app' directory,
-#     and uses the npm 'create vite@latest' command to scaffold a new React project
-#     with Vite as the build tool and React as the template. If the process is
-#     successful, it prints a success message. If any subprocess command fails,
-#     it catches the CalledProcessError exception and prints an error message.
-#     """
-#     try:
-#         # Create a new Vite project in the app directory with React template
-#         subprocess.run(['npm', 'create', 'vite@latest', '.', '--template', 'react'], check=True)
-#         # Print success message if project creation is successful
-#         return f"Successfully created a new React app using Vite."
-#     except subprocess.CalledProcessError as e:
-#         # Print error message if any subprocess command fails
-#         return f"An error occurred: {e}"
-#     except Exception as e:
-#         # Print error message if any other exception occurs
-#         return f"An unexpected error occurred: {e}"
-
+    Returns:
+    Tuple[str, bool]: A tuple containing the research report and a boolean indicating success.
+    """
+    researcher = GPTResearcher(query=question, report_type="research_report")
+    base_url = os.environ.pop("OPENAI_BASE_URL", None)
+    try:
+        research_result = asyncio.run(researcher.conduct_research())
+        report = asyncio.run(researcher.write_report())
+        return report, True
+    finally:
+        if base_url:
+            os.environ["OPENAI_BASE_URL"] = base_url
 
 @tool
 def create_directory(directory: str) -> str:
@@ -127,7 +130,8 @@ tools = [
     # create_react_app_with_vite,
     find_file,
     create_file,
-    update_file
+    update_file,
+    researcher
     # Add more tools if needed
 ]
 
