@@ -3,28 +3,7 @@ from langchain.agents import AgentType, initialize_agent
 from langchain_community.agent_toolkits.github.toolkit import GitHubToolkit
 from langchain_community.utilities.github import GitHubAPIWrapper
 from langchain_openai import ChatOpenAI
-
-github = GitHubAPIWrapper()
-toolkit = GitHubToolkit.from_github_api_wrapper(github)
-github_tools = toolkit.get_tools()
-
-llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
-
-memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-
-github_agent = (
-    {
-        "input": lambda x: x["input"],
-        "chat_history": lambda x: memory.buffer_as_messages,
-        "agent_scratchpad": lambda x: format_to_openai_tool_messages(
-            x["intermediate_steps"]
-        ),
-    }
-    | llm.bind_tools(github_tools)
-    | OpenAIToolsAgentOutputParser()
-)
-
-github_agent_executor = AgentExecutor(agent=github_agent, tools=github_tools, verbose=True, memory=memory)
+from langchain.tools import tool
 
 @tool
 def call_github_toolkit(action: str, context: str):
@@ -38,6 +17,27 @@ def call_github_toolkit(action: str, context: str):
     Returns:
     str: Result of the GitHub action.
     """
+    github = GitHubAPIWrapper()
+    toolkit = GitHubToolkit.from_github_api_wrapper(github)
+    github_tools = toolkit.get_tools()
+
+    llm = ChatOpenAI(model="gpt-4-turbo", temperature=0)
+
+    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+
+    github_agent = (
+        {
+            "input": lambda x: x["input"],
+            "chat_history": lambda x: memory.buffer_as_messages,
+            "agent_scratchpad": lambda x: format_to_openai_tool_messages(
+                x["intermediate_steps"]
+            ),
+        }
+        | llm.bind_tools(github_tools)
+        | OpenAIToolsAgentOutputParser()
+    )
+
+    github_agent_executor = AgentExecutor(agent=github_agent, tools=github_tools, verbose=True, memory=memory)
     input_data = {"input": f"{action}\n{context}"}
     result = github_agent_executor.run(input_data)
     return result

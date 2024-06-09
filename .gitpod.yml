@@ -13,3 +13,7 @@ tasks:
       pyenv install -s "$python_version"
       export PYENV_VERSION="$python_version"
       cd /workspace/ai-school-developer
+
+      docker pull ghcr.io/gofireflyio/aiac
+      sudo cp /workspace/.docker-root/overlay2/ad5d86e99c52fa11073c67b13e17d793c0da926109b7667556803a9f79edb2a6/diff/usr/local/bin/aiac /usr/local/bin/
+      sudo chmod +x /usr/local/bin/aiac

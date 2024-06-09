@@ -12,6 +12,7 @@ from langchain.agents.format_scratchpad.openai_tools import (
 from langchain.agents.output_parsers.openai_tools import OpenAIToolsAgentOutputParser
 from langchain.memory import ConversationBufferMemory, ReadOnlySharedMemory
 import subprocess
+import uuid
 from typing import Optional, Tuple
 import asyncio
 import os
@@ -20,8 +21,35 @@ from gpt_researcher import GPTResearcher
 from github_integrations import call_github_toolkit
 
 ROOT_DIR = "./"
-VALID_FILE_TYPES = {"py", "txt", "md", "cpp", "c", "java", "js", "html", "css", "ts", "json"}
 memory = ConversationBufferMemory(memory_key="chat_history")
+
+@tool
+def generate_iac(prompt: str, file_type: str) -> bool:
+    """
+    Generates Infrastructure-as-Code (IaC) based on a given prompt and saves the output to a file.
+
+    Parameters:
+    prompt (str): Succint prompt to generate IaC. Up to 10 words.
+    file_path (str): The path to the file where the output will be saved.
+
+    Returns:
+    bool: A boolean indicating success (True) or failure (False).
+    """
+    file_path = f"./{uuid.uuid4()}.{file_type.strip('.')}"
+    print(f"Saving contents at {file_path}")
+    try:
+        # Run the aiac command with the given prompt and save the output to the specified file
+        result = subprocess.run(
+            ["aiac", "get", prompt, "-q", f"--output-file={file_path}"],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        print(create_file(file_path, result.stdout))
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e.stderr}")
+        return e.stderr
 
 @tool
 def researcher(question: str, context: str) -> Tuple[str, bool]:
@@ -84,11 +112,7 @@ def find_file(filename: str, path: str) -> Optional[str]:
 @tool
 def create_file(filename: str, content: str = "", directory=""):
     """Creates a new file and content in the specified directory."""
-    try:
-        file_stem, file_type = filename.split(".")
-        assert file_type in VALID_FILE_TYPES
-    except:
-        return f"Invalid filename {filename} - must end with a valid file type: {valid_file_types}"
+
     directory_path = os.path.join(ROOT_DIR, directory)
     file_path = os.path.join(directory_path, filename)
     if not os.path.exists(file_path):
@@ -131,6 +155,7 @@ tools = [
     create_file,
     update_file,
     researcher,
+    generate_iac,
     call_github_toolkit
 ]
 
@@ -165,7 +190,8 @@ agent = (
 
 agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, memory=memory)
 
-while True:
-    user_prompt = input("Prompt: ")
-    chat_history = memory.buffer_as_messages
-    list(agent_executor.stream({"input": user_prompt, "chat_history": chat_history}))
+if __name__ == "__main__": 
+    while True:
+        user_prompt = input("Prompt: ")
+        chat_history = memory.buffer_as_messages
+        list(agent_executor.stream({"input": user_prompt, "chat_history": chat_history}))
